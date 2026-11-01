@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Un día como programador</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: VT323 para estética retro/terminal -->
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #0f0;
+            --dark-bg: #050505;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--neon-green);
+            font-family: 'VT323', monospace;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Efecto de monitor de tubo (CRT) */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 50;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* Texto Neón */
+        .neon-text {
+            text-shadow: 0 0 5px var(--neon-green), 0 0 10px var(--neon-green);
+        }
+        
+        .neon-text-red {
+            color: #f00;
+            text-shadow: 0 0 5px #f00, 0 0 10px #f00;
+        }
+
+        /* Barra de temperatura */
+        .temp-bar-container {
+            border: 2px solid var(--neon-green);
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        .temp-bar-fill {
+            transition: width 0.1s linear, background-color 0.3s;
+        }
+
+        /* Animación de Peligro (Shake) */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .danger-mode {
+            animation: shake 0.5s infinite;
+            border: 5px solid red !important;
+            box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.5);
+        }
+
+        /* Tipografía del juego */
+        .word-display {
+            font-size: 3rem;
+            letter-spacing: 0.1em;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid var(--neon-green);
+        }
+
+        .typed-char {
+            color: #fff;
+            text-shadow: 0 0 10px #fff;
+            background-color: rgba(0, 255, 0, 0.5);
+        }
+
+        .untyped-char {
+            opacity: 0.5;
+        }
+
+        /* BSOD (Blue Screen of Death) */
+        .bsod {
+            background-color: #0000aa;
+            color: #aaaaaa;
+            font-family: 'Courier New', Courier, monospace;
+            z-index: 100;
+        }
+
+        /* Pop-up de Eventos */
+        @keyframes popup-slide {
+            0% { transform: translateY(-100%); opacity: 0; }
+            10% { transform: translateY(0); opacity: 1; }
+            90% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100%); opacity: 0; }
+        }
+
+        .event-popup {
+            animation: popup-slide 4s ease-in-out forwards;
+        }
+    </style>
+</head>
+<body class="crt flex justify-center items-center">
+
+    <!-- Pantalla de Inicio -->
+    <div id="start-screen" class="absolute inset-0 flex flex-col justify-center items-center bg-black z-40">
+        <h1 class="text-6xl neon-text mb-4">UN DÍA COMO PROGRAMADOR</h1>
+        <p class="text-2xl mb-8">Escribe el código para enfriar los servidores.</p>
+        <p class="text-xl mb-8 opacity-75">Cuidado con los eventos aleatorios ☕</p>
+        <button id="btn-start" class="px-6 py-3 border-2 border-[#0f0] text-[#0f0] text-3xl hover:bg-[#0f0] hover:text-black transition-colors cursor-pointer neon-text">
+            INICIAR_SISTEMA()
+        </button>
+    </div>
+
+    <!-- Contenedor del Juego -->
+    <div id="game-container" class="w-full max-w-5xl h-full flex flex-col p-8 hidden relative transition-all duration-300">
+        
+        <!-- Header: Stats -->
+        <div class="flex justify-between items-end mb-4 text-3xl neon-text">
+            <div>
+                <span>Salario: $</span><span id="score-display">0</span>
+            </div>
+            <div class="text-xl opacity-80">
+                Uptime: <span id="time-display">0</span>s
+            </div>
+        </div>
+
+        <!-- Barra de Temperatura -->
+        <div class="mb-10 w-full">
+            <div class="flex justify-between text-2xl mb-2">
+                <span>Temp_Servidor:</span>
+                <span id="temp-text">0%</span>
+            </div>
+            <div class="temp-bar-container w-full h-8 bg-black relative">
+                <div id="temp-bar" class="temp-bar-fill h-full bg-[#0f0]" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Área Central de Tipeo -->
+        <div class="flex-grow flex flex-col justify-center items-center text-center">
+            <p class="text-2xl mb-4 opacity-80">> Ingresa el comando para estabilizar:</p>
+            <div id="word-display" class="word-display shadow-2xl flex flex-wrap justify-center max-w-full overflow-hidden">
+                <!-- Los caracteres se inyectan acá -->
+            </div>
+            
+            <p id="error-msg" class="text-red-500 mt-4 text-xl opacity-0 transition-opacity">Error de sintaxis...</p>
+        </div>
+
+        <!-- Pop-up de Eventos (Oculto por defecto) -->
+        <div id="event-popup" class="absolute top-10 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-8 py-4 border-4 border-white text-3xl shadow-[0_0_20px_red] hidden z-30 flex items-center gap-4">
+            <span class="text-4xl" id="event-icon">🔥</span>
+            <span id="event-text">¡Se cayó Producción!</span>
+        </div>
+
+    </div>
+
+    <!-- Pantalla BSOD (Game Over) -->
+    <div id="bsod-screen" class="absolute inset-0 bsod flex flex-col p-10 hidden">
+        <div class="bg-gray-300 text-blue-900 inline-block px-2 py-1 mb-8 font-bold text-2xl w-max">
+            Windows
+        </div>
+        <p class="text-2xl mb-6">
+            A fatal exception 0E has occurred at 028:C0011E36 in UXD VMM(01) + <br>
+            00010E36. The current application will be terminated.
+        </p>
+        <p class="text-2xl mb-6 text-white font-bold">
+            * Servidor incendiado. Temperatura crítica (100%).<br>
+            * Has sido despedido.
+        </p>
+        <p class="text-2xl mb-12">
+            Salario final generado: $<span id="final-score">0</span>
+        </p>
+        <p class="text-2xl text-center mt-auto animate-pulse">
+            Press SPACE to restart system _
+        </p>
+    </div>
+
+    <script>
+        // --- CONSTANTES Y DICCIONARIO ---
+        const comandos = [
+            "git commit -m 'fix bug'",
+            "npm install",
+            "sudo rm -rf /",
+            "console.log('hola');",
+            "python main.py",
+            "docker-compose up -d",
+            "SELECT * FROM users;",
+            "while (true) {}",
+            "System.out.print();",
+            "git push origin master",
+            "chmod +x script.sh",
+            "npm run build",
+            "ssh root@192.168.1.1",
+            "const x = 42;",
+            "return false;",
+            "try { catch(e) { }",
+            "rm -rf node_modules",
+            "git rebase -i HEAD~3",
+            "sudo systemctl restart nginx"
+        ];
+
+        const eventos = [
+            { icon: "🔥", text: "¡Se cayó Producción!", multiplier: 2.5 },
+            { icon: "👔", text: "El jefe pide cambios urgentes", multiplier: 2.0 },
+            { icon: "☕", text: "Derrame de café en el server", multiplier: 3.0 },
+            { icon: "🐛", text: "Bug en código heredado", multiplier: 2.0 }
+        ];
+
+        // --- ESTADO DEL JUEGO ---
+        let state = {
+            temperature: 15,
+            salary: 0,
+            uptime: 0,
+            baseTempRate: 1.5, // Cuánto sube por segundo
+            currentTempRate: 1.5,
+            currentWord: "",
+            typedIndex: 0,
+            isPlaying: false,
+            lastFrameTime: 0
+        };
+
+        // --- REFERENCIAS AL DOM ---
+        const DOM = {
+            startScreen: document.getElementById('start-screen'),
+            gameContainer: document.getElementById('game-container'),
+            bsodScreen: document.getElementById('bsod-screen'),
+            btnStart: document.getElementById('btn-start'),
+            wordDisplay: document.getElementById('word-display'),
+            scoreDisplay: document.getElementById('score-display'),
+            tempBar: document.getElementById('temp-bar'),
+            tempText: document.getElementById('temp-text'),
+            timeDisplay: document.getElementById('time-display'),
+            finalScore: document.getElementById('final-score'),
+            errorMsg: document.getElementById('error-msg'),
+            eventPopup: document.getElementById('event-popup'),
+            eventIcon: document.getElementById('event-icon'),
+            eventText: document.getElementById('event-text'),
+            body: document.body
+        };
+
+        // --- LÓGICA CORE ---
+
+        function initGame() {
+            state = {
+                temperature: 15,
+                salary: 0,
+                uptime: 0,
+                baseTempRate: 1.5,
+                currentTempRate: 1.5,
+                currentWord: "",
+                typedIndex: 0,
+                isPlaying: true,
+                lastFrameTime: performance.now()
+            };
+
+            DOM.startScreen.classList.add('hidden');
+            DOM.bsodScreen.classList.add('hidden');
+            DOM.gameContainer.classList.remove('hidden');
+            DOM.body.classList.remove('danger-mode', 'border-red-600');
+            DOM.eventPopup.classList.add('hidden');
+
+            updateUI();
+            setNewWord();
+            
+            // Loop de juego
+            requestAnimationFrame(gameLoop);
+            
+            // Reloj de uptime y eventos
+            state.uptimeInterval = setInterval(() => {
+                if(!state.isPlaying) return;
+                state.uptime++;
+                DOM.timeDisplay.innerText = state.uptime;
+
+                // Aumentar dificultad con el tiempo
+                if(state.uptime % 15 === 0) {
+                    state.baseTempRate += 0.5;
+                    state.currentTempRate = state.baseTempRate;
+                }
+
+                // Chance de evento caótico (cada segundo, 8% de chance si no hay evento activo)
+                if(Math.random() < 0.08 && DOM.eventPopup.classList.contains('hidden') && state.uptime > 5) {
+                    triggerEvent();
+                }
+
+            }, 1000);
+        }
+
+        function gameLoop(currentTime) {
+            if (!state.isPlaying) return;
+
+            const deltaTime = (currentTime - state.lastFrameTime) / 1000; // en segundos
+            state.lastFrameTime = currentTime;
+
+            // Subir temperatura
+            state.temperature += state.currentTempRate * deltaTime;
+
+            updateTemperatureUI();
+
+            // Condición de derrota
+            if (state.temperature >= 100) {
+                gameOver();
+                return;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function setNewWord() {
+            state.currentWord = comandos[Math.floor(Math.random() * comandos.length)];
+            state.typedIndex = 0;
+            renderWord();
+        }
+
+        function renderWord() {
+            DOM.wordDisplay.innerHTML = '';
+            for (let i = 0; i < state.currentWord.length; i++) {
+                const span = document.createElement('span');
+                // Si el caracter es un espacio, usar non-breaking space para que se renderice
+                span.innerText = state.currentWord[i] === ' ' ? '\u00A0' : state.currentWord[i];
+                
+                if (i < state.typedIndex) {
+                    span.classList.add('typed-char');
+                } else {
+                    span.classList.add('untyped-char');
+                }
+                
+                // Efecto de cursor titilante en la letra actual
+                if (i === state.typedIndex) {
+                    span.style.borderBottom = "2px solid #0f0";
+                    span.style.animation = "parpadeo 1s infinite";
+                }
+
+                DOM.wordDisplay.appendChild(span);
+            }
+        }
+
+        function handleInput(e) {
+            if (!state.isPlaying) {
+                // Reiniciar desde BSOD apretando ESPACIO
+                if(e.code === 'Space' && !DOM.bsodScreen.classList.contains('hidden')) {
+                    initGame();
+                }
+                return;
+            }
+
+            // Ignorar teclas modificadoras
+            if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return;
+            
+            // Prevenir scroll
+            if(e.code === 'Space') e.preventDefault();
+
+            const charEsperado = state.currentWord[state.typedIndex];
+
+            if (e.key === charEsperado) {
+                // Tecla correcta
+                state.typedIndex++;
+                DOM.errorMsg.style.opacity = '0';
+                
+                // Play sound (simulado visualmente)
+                
+                if (state.typedIndex === state.currentWord.length) {
+                    // Palabra completada
+                    wordCompleted();
+                } else {
+                    renderWord();
+                }
+            } else {
+                // Tecla incorrecta
+                DOM.errorMsg.style.opacity = '1';
+                setTimeout(() => DOM.errorMsg.style.opacity = '0', 200);
+            }
+        }
+
+        function wordCompleted() {
+            // Recompensas
+            state.salary += state.currentWord.length * 10;
+            state.temperature = Math.max(0, state.temperature - (state.currentWord.length * 1.5));
+            
+            updateUI();
+            setNewWord();
+            updateTemperatureUI(); // Fuerza actualización visual inmediata
+        }
+
+        function triggerEvent() {
+            const evento = eventos[Math.floor(Math.random() * eventos.length)];
+            
+            DOM.eventIcon.innerText = evento.icon;
+            DOM.eventText.innerText = evento.text;
+            
+            // Mostrar pop-up
+            DOM.eventPopup.classList.remove('hidden');
+            // Reiniciar animación clonando el nodo
+            const nuevoPopup = DOM.eventPopup.cloneNode(true);
+            DOM.eventPopup.parentNode.replaceChild(nuevoPopup, DOM.eventPopup);
+            DOM.eventPopup = nuevoPopup; // Actualizar referencia
+
+            // Aumentar dificultad temporalmente
+            state.currentTempRate = state.baseTempRate * evento.multiplier;
+
+            // Volver a la normalidad después de 4 segundos
+            setTimeout(() => {
+                state.currentTempRate = state.baseTempRate;
+                DOM.eventPopup.classList.add('hidden');
+            }, 4000);
+        }
+
+        function updateTemperatureUI() {
+            const temp = Math.min(100, Math.max(0, state.temperature));
+            DOM.tempBar.style.width = `${temp}%`;
+            DOM.tempText.innerText = `${Math.floor(temp)}%`;
+
+            // Cambiar colores según peligro
+            if (temp < 50) {
+                DOM.tempBar.style.backgroundColor = '#0f0'; // Verde
+                DOM.tempText.style.color = '#0f0';
+                DOM.body.classList.remove('danger-mode');
+            } else if (temp < 80) {
+                DOM.tempBar.style.backgroundColor = '#ff0'; // Amarillo
+                DOM.tempText.style.color = '#ff0';
+                DOM.body.classList.remove('danger-mode');
+            } else {
+                DOM.tempBar.style.backgroundColor = '#f00'; // Rojo
+                DOM.tempText.style.color = '#f00';
+                
+                // Activar Shake
+                if(!DOM.body.classList.contains('danger-mode')) {
+                    DOM.body.classList.add('danger-mode');
+                }
+            }
+        }
+
+        function updateUI() {
+            DOM.scoreDisplay.innerText = state.salary.toLocaleString();
+        }
+
+        function gameOver() {
+            state.isPlaying = false;
+            clearInterval(state.uptimeInterval);
+            
+            DOM.gameContainer.classList.add('hidden');
+            DOM.body.classList.remove('danger-mode');
+            
+            DOM.bsodScreen.classList.remove('hidden');
+            DOM.finalScore.innerText = state.salary.toLocaleString();
+        }
+
+        // --- EVENT LISTENERS ---
+        DOM.btnStart.addEventListener('click', initGame);
+        window.addEventListener('keydown', handleInput);
+
+        // CSS extra para el parpadeo del cursor
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes parpadeo {
+                0%, 100% { border-color: transparent; }
+                50% { border-color: #0f0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+    </script>
+</body>
+</html>
